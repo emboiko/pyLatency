@@ -19,6 +19,5 @@ or
 ---
 
 todo:
-- icon
-- window geometry persistence
-- log
+- logfile => options
+- average paramter=> options

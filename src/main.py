@@ -9,6 +9,9 @@ from tkinter import (
     Listbox,
     PanedWindow
 )
+from os import mkdir, getenv
+from os.path import exists
+from json import loads, dumps
 from sys import platform
 from subprocess import run
 from re import findall
@@ -25,8 +28,20 @@ class PyLatency:
 
         self.master = root
         self.master.title("pyLatency")
-        self.master.geometry("500x300")
-        self.master.minsize(width=250, height=200)
+
+        self.appdata_dir = getenv("APPDATA") + "/pyLatency"
+        self.appdata_path = self.appdata_dir + "/options.json"
+        self.options = self.init_options()
+
+        if self.options:
+            self.options_geometry = self.options["geometry"]
+
+        if self.options_geometry:
+            self.master.geometry(self.options_geometry)
+        else:
+            self.master.geometry("400x200")
+
+        self.master.minsize(width=400, height=200)
         self.master.update()
 
         #misc:
@@ -130,6 +145,8 @@ class PyLatency:
                 self.delay_scale.get() - 100
             )
         )
+
+        self.master.protocol("WM_DELETE_WINDOW", self.master_close)
 
 
     def start(self, event=None):
@@ -242,6 +259,33 @@ class PyLatency:
         if self.running:
             self.running = False
             self.lbl_status_1.config(text="Stopped", fg="red")
+
+
+    def master_close(self, event=None):
+        """Writes window options/geometry to the disk."""
+
+        options=dumps({"geometry" : self.master.geometry()})
+
+        if not exists(self.appdata_dir):
+            mkdir(self.appdata_dir)
+
+        with open(self.appdata_path, "w+") as options_file:
+            options_file.write(options)
+
+        self.master.destroy()
+
+
+    def init_options(self):
+        """Called on startup, loads, parses, and returns options from json."""
+
+        if exists(self.appdata_path):
+            with open(self.appdata_path, "r") as options_file:
+                options_json=options_file.read()
+
+            options=loads(options_json)
+            return options
+        else:
+            return None
 
 
     @staticmethod
