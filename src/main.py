@@ -14,7 +14,6 @@ from subprocess import run
 from re import findall
 from time import sleep
 from threading import Thread
-from os.path import dirname
 
 
 class PyLatency:
@@ -28,7 +27,6 @@ class PyLatency:
         self.master.geometry("500x300")
         self.master.minsize(width=250, height=200)
         self.master.update()
-        self.master.iconbitmap(f"{dirname(__file__)}/icon.ico")
 
         #misc:
         self.running = False

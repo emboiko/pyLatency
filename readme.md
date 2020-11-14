@@ -12,14 +12,14 @@ then
 
 `python main.py`
 
-~~or~~
+or
 
-~~`pyLatency.exe`~~
+`pyLatency.exe`
 
 ---
 
 todo:
 - Options => colors
 - min, max, average / resets
-- executable
+- icon
 - window geometry persistence
