@@ -14,6 +14,7 @@ from subprocess import run
 from re import findall
 from time import sleep
 from threading import Thread
+from collections import deque
 
 
 class PyLatency:
@@ -32,13 +33,18 @@ class PyLatency:
         self.running = False
         self.hostname = None
         self.RECT_SCALE_FACTOR = 2 #todo
+        self.TIMEOUT = 5000
+        self.minimum = self.TIMEOUT
+        self.maximum = 0
+        self.average = 0
+        self.sample = deque(maxlen=100)
 
         # Widgets:
         self.frame = Frame(self.master)
 
         self.lbl_entry = Label(self.frame, text="Host:")
-        self.lbl_status = Label(self.frame, text="Ready")
-        self.lbl_error = Label(self.frame, fg="red")
+        self.lbl_status_1 = Label(self.frame, text="Ready")
+        self.lbl_status_2 = Label(self.frame, fg="red")
         self.entry = Entry(self.frame)
 
         self.btn_start = Button(
@@ -58,7 +64,7 @@ class PyLatency:
             label="Interval (ms)", 
             orient="horizontal",
             from_=100,
-            to=5000,
+            to=self.TIMEOUT,
             resolution=100,
         )
         self.delay_scale.set(1000)
@@ -92,8 +98,8 @@ class PyLatency:
         self.frame.grid(row=0, column=0, sticky="nsew")
 
         self.lbl_entry.grid(row=0, column=0)
-        self.lbl_status.grid(row=1, column=0, columnspan=5)
-        self.lbl_error.grid(row=2, column=0, columnspan=5)
+        self.lbl_status_1.grid(row=1, column=0, columnspan=4)
+        self.lbl_status_2.grid(row=2, column=0, columnspan=4)
         self.entry.grid(row=0, column=1, sticky="ew")
         self.btn_start.grid(row=0, column=2)
         self.btn_stop.grid(row=0, column=3)
@@ -135,13 +141,17 @@ class PyLatency:
             if self.hostname:
                 self.ping_list.delete(0,"end")
                 self.canvas.delete("all")
-                self.lbl_status.config(text="Running", fg="green")
-                self.lbl_error.config(text="")
+                self.lbl_status_1.config(text="Running", fg="green")
+                self.lbl_status_2.config(text="")
+
+                self.sample.clear()
+                self.minimum, self.maximum, self.average = self.TIMEOUT, 0, 0
+
                 self.running = True
                 self.thread = Thread(target=self.run, daemon=True)
                 self.thread.start()
             else:
-                self.lbl_error.config(text="Missing Hostname")
+                self.lbl_status_2.config(text="Missing Hostname")
 
 
     def run(self):
@@ -152,9 +162,19 @@ class PyLatency:
 
         while self.running:
             latency = self.ping(self.hostname)
+
             if latency is None:
                 self.stop()
-                self.lbl_error.config(text="Unable to ping host")
+                self.lbl_status_2.config(text="Unable to ping host")
+                return
+            if latency > self.maximum:
+                self.maximum = latency
+            if latency < self.minimum:
+                self.minimum = latency
+            
+            self.sample.append(latency)
+            self.average = sum(self.sample) / len(self.sample)
+
             self.update_gui(latency)
             sleep(self.delay_scale.get() / 1000)
 
@@ -177,6 +197,13 @@ class PyLatency:
             tags="rect",
         )
 
+        self.lbl_status_2.config(
+            fg="#000000", 
+            text=f"Min: {self.minimum} "
+            f"Max: {self.maximum} "
+            f"Avg: {round(self.average,2):.2f}"
+        )
+
         self.cleanup_rects()
         self.master.update()
 
@@ -194,7 +221,7 @@ class PyLatency:
 
         if self.running:
             self.running = False
-            self.lbl_status.config(text="Stopped", fg="red")
+            self.lbl_status_1.config(text="Stopped", fg="red")
 
 
     @staticmethod
@@ -204,8 +231,8 @@ class PyLatency:
         Returns None if ping fails for any reason: timeout, bad hostname, etc.
         """
 
-        flag = '-n' if platform == 'win32' else '-c'
-        result = run(['ping', flag, '1', url], capture_output=True)
+        flag = "-n" if platform == "win32" else "-c"
+        result = run(["ping", flag, "1", "-w", "5000", url], capture_output=True)
         output = result.stdout.decode("utf-8")
         try:
             duration = findall("\d+ms", output)[0]
