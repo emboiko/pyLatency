@@ -13,7 +13,7 @@ from os import mkdir, getenv
 from os.path import exists
 from json import loads, dumps
 from sys import platform
-from subprocess import run
+from subprocess import run, DETACHED_PROCESS
 from re import findall
 from time import sleep
 from threading import Thread
@@ -296,10 +296,14 @@ class PyLatency:
         """
 
         flag = "-n" if platform == "win32" else "-c"
-        result = run(["ping", flag, "1", "-w", "5000", url], capture_output=True)
+        result = run(
+            ["ping", flag, "1", "-w", "5000", url],
+            capture_output=True, 
+            creationflags=DETACHED_PROCESS
+        )
         output = result.stdout.decode("utf-8")
         try:
-            duration = findall("\d+ms", output)[0]
+            duration = findall("\\d+ms", output)[0]
             return int(duration[:-2])
         except IndexError:
             return None
