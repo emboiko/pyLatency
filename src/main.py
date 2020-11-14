@@ -21,7 +21,7 @@ class PyLatency:
     """Ping tool visualization"""
 
     def __init__(self, root):
-        """Setup window geometry & widgets + layout"""
+        """Setup window geometry & widgets + layout, init counters"""
 
         self.master = root
         self.master.title("pyLatency")
@@ -32,12 +32,14 @@ class PyLatency:
         #misc:
         self.running = False
         self.hostname = None
-        self.RECT_SCALE_FACTOR = 2 #todo
+        self.RECT_SCALE_FACTOR = 2
         self.TIMEOUT = 5000
         self.minimum = self.TIMEOUT
         self.maximum = 0
         self.average = 0
         self.sample = deque(maxlen=100)
+        self.max_bar = None
+        self.min_bar = None
 
         # Widgets:
         self.frame = Frame(self.master)
@@ -195,13 +197,31 @@ class PyLatency:
             int(latency * self.RECT_SCALE_FACTOR), 
             fill="#333333",
             tags="rect",
+            width=0
+        )
+
+        self.canvas.delete(self.max_bar)
+        self.max_bar = self.canvas.create_line(
+            0,
+            self.maximum * self.RECT_SCALE_FACTOR,
+            self.canvas.winfo_width(),
+            self.maximum * self.RECT_SCALE_FACTOR,
+            fill="red",
+        )
+        self.canvas.delete(self.min_bar)
+        self.min_bar = self.canvas.create_line(
+            0,
+            self.minimum * self.RECT_SCALE_FACTOR,
+            self.canvas.winfo_width(),
+            self.minimum * self.RECT_SCALE_FACTOR,
+            fill="green",
         )
 
         self.lbl_status_2.config(
             fg="#000000", 
             text=f"Min: {self.minimum} "
             f"Max: {self.maximum} "
-            f"Avg: {round(self.average,2):.2f}"
+            f"Avg: {round(self.average,2):.2f} (last 100)"
         )
 
         self.cleanup_rects()

@@ -1,7 +1,7 @@
 ### pyLatency
 
 <div align="center">
-<img src="https://i.imgur.com/oYcute2.png">
+<img src="https://i.imgur.com/vj4ZKpJ.png">
 </div>
 
 **Install & Run**
@@ -19,7 +19,6 @@ or
 ---
 
 todo:
-- Options => colors
 - icon
 - window geometry persistence
 - log
