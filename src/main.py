@@ -184,6 +184,12 @@ class PyLatency:
         self.master.protocol("WM_DELETE_WINDOW", self.master_close)
 
 
+    def __str__(self):
+        """Return own address"""
+
+        return f"pyLatency GUI @ {hex(id(self))}"
+
+
     def start(self, event=None):
         """
             Reset the GUI, create & start a thread so we don't block
