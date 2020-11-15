@@ -315,6 +315,7 @@ class PyLatency:
             fill="green",
         )
 
+        # canvas scrollable region is not updated automatically
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
         self.lbl_status_2.config(
@@ -329,6 +330,12 @@ class PyLatency:
 
 
     def scroll_canvas(self, event):
+        """
+            Bound to <MouseWheel> tkinter event on self.canvas.
+            Respond to Linux or Windows mousewheel event, and scroll
+            the canvas accordingly
+        """
+
         count = None
         if event.num == 5 or event.delta == -120:
             count = 1
