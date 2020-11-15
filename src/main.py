@@ -114,18 +114,24 @@ class PyLatency:
         self.paneview.add(self.left_pane)
         self.paneview.add(self.right_pane)
 
-        self.canvas = Canvas(self.left_pane, bg="#FFFFFF")
+        self.canvas_scroll_y = Scrollbar(self.left_pane)
+        self.canvas = Canvas(
+            self.left_pane,
+            bg="#FFFFFF",
+            yscrollcommand=self.canvas_scroll_y.set
+        )
+        self.canvas_scroll_y.config(command=self.canvas.yview)
+        self.left_pane.add(self.canvas_scroll_y)
 
         self.ping_list_scroll = Scrollbar(self.master)
-
         self.ping_list = Listbox(
             self.right_pane, 
             highlightthickness=0,
             font=14,
             selectmode="disabled",
             yscrollcommand=self.ping_list_scroll.set)
-
         self.ping_list_scroll.config(command=self.ping_list.yview)
+        self.right_pane.add(self.ping_list_scroll)
 
         self.left_pane.add(self.canvas)
         self.right_pane.add(self.ping_list)
@@ -147,8 +153,9 @@ class PyLatency:
         self.chk_log.grid(row=1, column=2, columnspan=2)
         self.delay_scale.grid(row=0, column=4, rowspan=2)
 
+        # self.canvas_scroll_y.grid(row=1, column=2, sticky="ns")
         self.paneview.grid(row=1, column=0, sticky="nsew")
-        self.ping_list_scroll.grid(row=1, column=1, sticky="ns")
+        # self.ping_list_scroll.grid(row=1, column=1, sticky="ns")
 
         self.paneview.paneconfigure(
             self.left_pane,
@@ -156,6 +163,8 @@ class PyLatency:
         )
 
         #Bindings:
+        self.canvas.bind("<MouseWheel>", self.scroll_canvas)
+
         self.master.bind("<Return>", self.start)
         self.master.bind("<Escape>", self.stop)
         self.master.bind("<Control-w>", lambda event: self.master.destroy())
@@ -306,6 +315,8 @@ class PyLatency:
             fill="green",
         )
 
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
         self.lbl_status_2.config(
             fg="#000000", 
             text=f"Min: {self.minimum} "
@@ -315,6 +326,18 @@ class PyLatency:
 
         self.cleanup_rects()
         self.master.update()
+
+    
+    def scroll_canvas(self, event):
+        print(event.delta)
+
+        count = None
+        if event.num == 5 or event.delta == -120:
+            count = 1
+        if event.num == 4 or event.delta == 120:
+            count = -1
+
+        self.canvas.yview_scroll(count, "units")
 
 
     def cleanup_rects(self):
