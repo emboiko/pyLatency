@@ -7,34 +7,43 @@ from tkinter import (
     Label, 
     Scale,
     Listbox,
-    PanedWindow
+    PanedWindow,
+    Checkbutton,
+    BooleanVar
 )
 from os import mkdir, getenv
 from os.path import exists
-from json import loads, dumps
 from sys import platform
-from subprocess import run, DETACHED_PROCESS
-from re import findall
+from datetime import datetime
 from time import sleep
-from threading import Thread
+from timeit import default_timer
+from json import loads, dumps
+from re import findall
 from collections import deque
-
+from subprocess import run, DETACHED_PROCESS
+from threading import Thread
+from functools import wraps
 
 class PyLatency:
-    """Ping tool visualization"""
+    """Ping tool visualization with tkinter"""
 
     def __init__(self, root):
         """Setup window geometry & widgets + layout, init counters"""
 
         self.master = root
         self.master.title("pyLatency")
-
         self.appdata_dir = getenv("APPDATA") + "/pyLatency"
-        self.appdata_path = self.appdata_dir + "/options.json"
-        self.options = self.init_options()
+        self.options_path = self.appdata_dir + "/options.json"
+        self.log_dir = self.appdata_dir + "/logs"
+        self.logfile = None
 
+        self.options_logging = BooleanVar()
+        self.options_geometry = ""
+
+        self.options = self.init_options()
         if self.options:
             self.options_geometry = self.options["geometry"]
+            self.options_logging.set(self.options["logging"])
 
         if self.options_geometry:
             self.master.geometry(self.options_geometry)
@@ -52,7 +61,8 @@ class PyLatency:
         self.minimum = self.TIMEOUT
         self.maximum = 0
         self.average = 0
-        self.sample = deque(maxlen=100)
+        self.sample = deque(maxlen=1000)
+        self.pcount = 0
         self.max_bar = None
         self.min_bar = None
 
@@ -74,6 +84,12 @@ class PyLatency:
             self.frame, 
             text="Stop",
             command=self.stop
+        )
+
+        self.chk_log = Checkbutton(
+            self.frame, 
+            text="Enable log", 
+            variable=self.options_logging
         )
 
         self.delay_scale = Scale(
@@ -120,6 +136,7 @@ class PyLatency:
         self.entry.grid(row=0, column=1, sticky="ew")
         self.btn_start.grid(row=0, column=2)
         self.btn_stop.grid(row=0, column=3)
+        self.chk_log.grid(row=1, column=2, columnspan=2)
         self.delay_scale.grid(row=0, column=4, rowspan=2)
 
         self.paneview.grid(row=1, column=0, sticky="nsew")
@@ -164,7 +181,11 @@ class PyLatency:
                 self.lbl_status_2.config(text="")
 
                 self.sample.clear()
-                self.minimum, self.maximum, self.average = self.TIMEOUT, 0, 0
+
+                (self.minimum,
+                self.maximum, 
+                self.average,
+                self.pcount) = self.TIMEOUT, 0, 0, 0
 
                 self.running = True
                 self.thread = Thread(target=self.run, daemon=True)
@@ -173,6 +194,41 @@ class PyLatency:
                 self.lbl_status_2.config(text="Missing Hostname")
 
 
+    def logged(fn):
+        """
+            decorates self.run(), create a log directory if one doesn't
+            exist, create a filename with a date & timestamp, call self.run()
+            with logging enabled or disabled
+        """
+
+        @wraps(fn)
+        def inner(self):
+            if self.options_logging.get():
+                if not exists(self.log_dir):
+                    mkdir(self.log_dir)
+
+                timestamp = datetime.now()
+                fname = timestamp.strftime("%a %b %d @ %H-%M-%S")
+
+                with open(self.log_dir + f"/{fname}.txt", "w+") as self.logfile:
+                    self.logfile.write(f"pyLatency {fname}\n")
+                    self.logfile.write(f"Host: {self.hostname}\n")
+                    self.logfile.write("-" * 40 + "\n")
+                    start = default_timer()
+                    fn(self)
+                    end = default_timer()
+                    elapsed = end - start
+                    self.logfile.write("-" * 40 + "\n")
+                    self.logfile.write(
+                        f"Logged {self.pcount} pings over {int(elapsed)} seconds"
+                    )
+            else:
+                fn(self)
+
+        return inner
+
+
+    @logged
     def run(self):
         """
             Continuously shell out to ping, get an integer result, 
@@ -181,6 +237,7 @@ class PyLatency:
 
         while self.running:
             latency = self.ping(self.hostname)
+            self.pcount += 1
 
             if latency is None:
                 self.stop()
@@ -194,14 +251,17 @@ class PyLatency:
             self.sample.append(latency)
             self.average = sum(self.sample) / len(self.sample)
 
+            if self.logfile:
+                self.logfile.write(str(latency)+"\n")
+
             self.update_gui(latency)
             sleep(self.delay_scale.get() / 1000)
 
 
     def update_gui(self, latency):
         """
-        Update the listbox, shift all existing rectangles, draw the latest
-        result from self.ping(), cleanup unused rectangles, update the mainloop
+            Update the listbox, shift all existing rectangles, draw the latest
+            result from self.ping(), cleanup unused rectangles, update the mainloop
         """
 
         self.ping_list.insert(0, str(latency) + "ms")
@@ -238,7 +298,7 @@ class PyLatency:
             fg="#000000", 
             text=f"Min: {self.minimum} "
             f"Max: {self.maximum} "
-            f"Avg: {round(self.average,2):.2f} (last 100)"
+            f"Avg: {round(self.average,2):.2f}"
         )
 
         self.cleanup_rects()
@@ -262,28 +322,30 @@ class PyLatency:
 
 
     def master_close(self, event=None):
-        """Writes window options/geometry to the disk."""
+        """Writes window geometry/options to the disk."""
 
-        options=dumps({"geometry" : self.master.geometry()})
+        options=dumps({
+            "geometry" : self.master.geometry(),
+            "logging" : self.options_logging.get()
+        })
 
         if not exists(self.appdata_dir):
             mkdir(self.appdata_dir)
 
-        with open(self.appdata_path, "w+") as options_file:
+        with open(self.options_path, "w+") as options_file:
             options_file.write(options)
-
+        
         self.master.destroy()
 
 
     def init_options(self):
         """Called on startup, loads, parses, and returns options from json."""
 
-        if exists(self.appdata_path):
-            with open(self.appdata_path, "r") as options_file:
+        if exists(self.options_path):
+            with open(self.options_path, "r") as options_file:
                 options_json=options_file.read()
 
-            options=loads(options_json)
-            return options
+            return loads(options_json)
         else:
             return None
 
@@ -291,8 +353,8 @@ class PyLatency:
     @staticmethod
     def ping(url):
         """
-        Shell out to ping and return an integer result.
-        Returns None if ping fails for any reason: timeout, bad hostname, etc.
+            Shell out to ping and return an integer result.
+            Returns None if ping fails for any reason: timeout, bad hostname, etc.
         """
 
         flag = "-n" if platform == "win32" else "-c"

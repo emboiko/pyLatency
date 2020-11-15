@@ -1,7 +1,7 @@
 ### pyLatency
 
 <div align="center">
-<img src="https://i.imgur.com/vj4ZKpJ.png">
+<img src="https://i.imgur.com/uLw7cnK.png">
 </div>
 
 **Install & Run**
@@ -16,8 +16,4 @@ or
 
 `pyLatency.exe`
 
----
-
-todo:
-- logfile => options
-- average paramter=> options
+**Logs** are written to %APPDATA/pyLatency/Logs
