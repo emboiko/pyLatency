@@ -7,6 +7,7 @@ from tkinter import (
     Label, 
     Scale,
     Listbox,
+    Scrollbar,
     PanedWindow,
     Checkbutton,
     BooleanVar
@@ -23,6 +24,7 @@ from collections import deque
 from subprocess import run, DETACHED_PROCESS
 from threading import Thread
 from functools import wraps
+
 
 class PyLatency:
     """Ping tool visualization with tkinter"""
@@ -53,7 +55,6 @@ class PyLatency:
         self.master.minsize(width=400, height=200)
         self.master.update()
 
-        #misc:
         self.running = False
         self.hostname = None
         self.RECT_SCALE_FACTOR = 2
@@ -61,7 +62,8 @@ class PyLatency:
         self.minimum = self.TIMEOUT
         self.maximum = 0
         self.average = 0
-        self.sample = deque(maxlen=1000)
+        self.SAMPLE_SIZE = 1000
+        self.sample = deque(maxlen=self.SAMPLE_SIZE)
         self.pcount = 0
         self.max_bar = None
         self.min_bar = None
@@ -113,11 +115,17 @@ class PyLatency:
         self.paneview.add(self.right_pane)
 
         self.canvas = Canvas(self.left_pane, bg="#FFFFFF")
+
+        self.ping_list_scroll = Scrollbar(self.master)
+
         self.ping_list = Listbox(
             self.right_pane, 
             highlightthickness=0,
             font=14,
-            selectmode="disabled")
+            selectmode="disabled",
+            yscrollcommand=self.ping_list_scroll.set)
+
+        self.ping_list_scroll.config(command=self.ping_list.yview)
 
         self.left_pane.add(self.canvas)
         self.right_pane.add(self.ping_list)
@@ -140,6 +148,7 @@ class PyLatency:
         self.delay_scale.grid(row=0, column=4, rowspan=2)
 
         self.paneview.grid(row=1, column=0, sticky="nsew")
+        self.ping_list_scroll.grid(row=1, column=1, sticky="ns")
 
         self.paneview.paneconfigure(
             self.left_pane,
@@ -263,6 +272,9 @@ class PyLatency:
             Update the listbox, shift all existing rectangles, draw the latest
             result from self.ping(), cleanup unused rectangles, update the mainloop
         """
+
+        if self.ping_list.size() >= self.SAMPLE_SIZE:
+            self.ping_list.delete(self.SAMPLE_SIZE - 1, "end")
 
         self.ping_list.insert(0, str(latency) + "ms")
 
