@@ -327,16 +327,13 @@ class PyLatency:
         self.cleanup_rects()
         self.master.update()
 
-    
-    def scroll_canvas(self, event):
-        print(event.delta)
 
+    def scroll_canvas(self, event):
         count = None
         if event.num == 5 or event.delta == -120:
             count = 1
         if event.num == 4 or event.delta == 120:
             count = -1
-
         self.canvas.yview_scroll(count, "units")
 
 
