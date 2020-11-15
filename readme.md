@@ -14,6 +14,6 @@ then
 
 or
 
-`pyLatency.exe`
+`dist/pyLatency/pyLatency.exe`
 
 **Logs** are written to %APPDATA/pyLatency/Logs
